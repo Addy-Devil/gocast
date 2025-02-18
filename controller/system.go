@@ -59,20 +59,25 @@ func localAddress(gw net.IP) (net.IP, error) {
 }
 
 func addLoopback(name string, addr *net.IPNet) error {
-	deleteLoopback(addr)
-	prefixLen, _ := addr.Mask.Size()
-	label := fmt.Sprintf("lo:%s", name)
-	// linux kernel limits labels to 15 chars
-	if len(label) > 15 {
-		label = label[:15]
-	}
-	cmd := fmt.Sprintf("ip address add %s/%d dev lo label %s", addr.IP.String(), prefixLen, label)
-	cmdList := getCmdList(cmd)
-	_, err := exec.Command(execCmd, cmdList...).Output()
-	if err != nil {
-		return fmt.Errorf("Failed to Add loopback command: %s: %v", cmd, err)
-	}
-	return nil
+    deleteLoopback(addr)
+    prefixLen, _ := addr.Mask.Size()
+    
+    // Sanitize the name by removing any single quotes
+    name = strings.ReplaceAll(name, "'", "")
+    
+    label := fmt.Sprintf("lo:%s", name)
+    // linux kernel limits labels to 15 chars
+    if len(label) > 15 {
+        label = label[:15]
+    }
+    
+    // Use exec.Command with separate arguments to prevent injection
+    cmd := exec.Command("ip", "address", "add", fmt.Sprintf("%s/%d", addr.IP.String(), prefixLen), "dev", "lo", "label", label)
+    _, err := cmd.Output()
+    if err != nil {
+        return fmt.Errorf("Failed to Add loopback command: %v", err)
+    }
+    return nil
 }
 
 func deleteLoopback(addr *net.IPNet) error {
